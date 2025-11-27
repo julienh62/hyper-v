@@ -1,0 +1,285 @@
+Faire la liste de tous les elements de l'environnement du serveur;
+➡️ Système
+
+Ubuntu 22.04.5 LTS
+
+➡️ Symfony
+
+Symfony 5.4.48 (LTS)
+
+Mode prod
+
+Utilise PHP 8.1 + OPcache
+
+Chemins standards /var/www/symfony
+
+➡️ PHP
+
+PHP 8.1.2
+
+PHP-FPM 8.1 actif (/var/run/php/php8.1-fpm.sock)
+
+Extensions clés : intl, mbstring, pdo_mysql, curl, opcache…
+
+➡️ Nginx
+
+Version : 1.18
+
+2 vhosts : opalerev.fr et symfony
+
+Certbot (Let’s Encrypt) actif
+
+Racine projet : /var/www/symfony/public
+
+Redirection HTTP → HTTPS
+
+index.php exposé via fastcgi_pass
+
+➡️ Base de données
+
+MariaDB 10.6.22
+
+Socket : /run/mysqld/mysqld.sock
+
+Service actif
+
+➡️ Composer
+
+Version : 2.2.6
+
+➡️ Node.js / npm / Yarn / Webpack
+
+AUCUN outil JS installé (ni node, ni npm, ni webpack)
+
+
+Activer hyper V 
+PS C:\windows\system32>                                                                                                 >> Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All
+Voulez-vous redémarrer l’ordinateur pour terminer cette opération maintenant ?
+[Y] Yes  [N] No  [?] Aide (la valeur par défaut est « Y ») :
+
+redemarrer
+
+verifier 
+systeminfo | findstr /i "Hyper"
+retour attendu  
+Configuration requise pour Hyper-V: Un hyperviseur a été détecté. Les fonctionnalités nécessaires à Hyper-V ne seront pas affichées.
+ou Hyper-V Requirements:      Yes
+
+Créer une nouvelle VM (ordinateur virtuel)
+Aller sur le nom du pc 
+Clique sur Nouveau → Ordinateur virtuel
+cliquer sur suivant pour créer un ordinateur virtuel personnalisé
+Choisir Generation 2 si pas automatic (important pour UEFI et meilleures performances)
+
+aller dans parametre -> mémoire 8192 Mo en max de mémoire (=8Go)  ok
+toujours dans parametre 
+Disque dur -> nouveau -> taille fixe
+nommer le fichier du disque dur virtuel .vhdx (exemple:  ubuntu-dev-symfo-disk.vhdx)
+Taille recommandée : 40 à 80 Go
+Exemple : 60 Go → suffisant pour Ubuntu + PHP + Nginx + MariaDB + Node.js + Webpack
+
+Le disque dur se cree
+
+Prochaine étape : attacher l’ISO Ubuntu 22.04 et installer le système
+Clic droit sur la VM → Paramètres.
+
+Dans securité ; decocher demarre securisé   (secure boot)
+
+
+
+Dans le panneau de gauche, sélectionne Contrôleur SCSI.
+
+Clique sur Ajouter → Lecteur DVD.
+
+À droite :
+
+Choisis Fichier image (.iso)
+
+Clique Parcourir…
+
+Sélectionne ton fichier ISO Ubuntu 22.04.5.
+
+Clique Appliquer, puis OK.
+
+Après création du disque → Hyper-V te demandera si tu veux installer un système d’exploitation
+
+Choisis Installer à partir d’un fichier image bootable (ISO)
+
+Clique sur Parcourir… et sélectionne ton ISO Ubuntu 22.04 Server
+
+Clique sur Suivant → Terminer  
+OU BIEN 
+Va dans Microprogramme (firmware)
+
+Tu devrais voir une liste comme :
+
+Disque dur
+
+Réseau
+
+Lecteur DVD
+
+👉 Déplace le Lecteur DVD tout en haut (sélectionne-le puis clique sur Monter / Up).
+
+Alternative 100% stable pour le dev
+
+Si tu veux éviter ce problème définitivement :
+
+Option recommandée :
+
+✔️ Internal Switch (IP statique)
+✔️ NAT pour donner Internet à la VM
+
+=> Plus rapide
+=> Plus stable
+=> Jamais de bug “configuration error”
+=> SSH toujours OK
+=> fonctionnement identique à WSL2
+
+
+Dans Gestionnaire Hyper-V :
+
+Gestion du commutateur virtuel
+
+Créer un commutateur interne
+
+Nom : InternalNAT
+
+OK
+
+Ouvre PowerShell en administrateur :
+Get-NetAdapter  (verifier que internalNat est bien presente)
+
+Arrêter ta VM dans Hyper-V Manager
+
+Pour éviter tout conflit pendant le changement de réseau
+
+dans PowerShell admin; 
+New-NetIPAddress -InterfaceAlias "vEthernet (InternalNAT)" -IPAddress 10.10.0.1 -PrefixLength 24
+L’IP que nous allons mettre dessus sera 10.10.0.1 (fixe pour l’hôte)
+
+créer le NAT   (network address translation)
+
+Toujours dans PowerShell admin :
+New-NetNat -Name VMSymfonyNat -InternalIPInterfaceAddressPrefix 10.10.0.0/24
+
+Dans la VM (désactivée pour le moment) :
+Démarre-la.
+Vérifie le nom de l’interface réseau :
+ip -4 addr
+Souvent eth0 ou ens33
+On utilisera ce nom dans Netplan
+
+
+Étape suivante : configurer une IP fixe via Netplan
+Édite ou crée le fichier Netplan :
+dans /etc/netplan   modifier la config 
+/etc/netplan/50-cloud-init.yaml
+"network:
+    ethernets:
+        eth0:
+            dhcp4: true
+    version: 2"                  à remplacer par  
+
+network:
+    version: 2
+    ethernets:
+        eth0:
+            addresses:
+              - 10.10.0.10/24
+            gateway4: 10.10.0.1
+            nameservers:
+                addresses: [8.8.8.8, 1.1.1.1]
+
+
+
+10.10.0.10 → IP fixe de la VM
+10.10.0.1 → passerelle, l’IP du switch InternalNAT sur Windows
+DNS → Google et Cloudflare pour l’Internet
+
+dans parametre de hyper v  -> carte reseau selectionner internalNat
+
+Applique la configuration :
+sudo netplan apply
+
+
+sudo ip link set dev eth0 down
+sudo ip link set dev eth0 up
+
+
+SI PROBLEME de connection:
+sudo ip addr flush dev eth0
+sudo ip addr add 10.10.0.10/24 dev eth0
+sudo ip route add default via 10.10.0.1
+
+
+echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
+echo "nameserver 1.1.1.1" | sudo tee -a /etc/resolv.conf
+
+
+
+
+
+
+
+
+
+
+
+aller sur la VM  -> se connecter ->  choisir anglais pour la langue ->  choisir identifier clavier (pour arriver à français)
+
+recuperer ipv4 de la VM
+ip -4 -o addr show | grep -w inet | awk '{print $4}'
+    exemle
+127.0.0.1	Adresse interne de la VM (localhost)
+192.168.1.131	Adresse réseau de la VM sur ton LAN
+Ta VM a pris une IP normale fournie par ton routeur/box.
+👉 Elle est sur le même réseau que ton PC.
+
+
+
+symfony server:start --allow-http --port=8000 --listen-ip=0.0.0.0 -d
+
+pour tuer tout processus qui utiliserai port 8000
+sudo fuser -k 8000/tcp 2>/dev/null; symfony server:start --allow-http --port=8000 --listen-ip=0.0.0.0 -d
+
+-- Créer l'utilisateur si inexistant
+CREATE USER 'jhennebo'@'localhost' IDENTIFIED BY 'C462.5242';
+
+
+GRANT ALL PRIVILEGES ON eoliasymfonycalendar.* TO 'jhennebo'@'localhost';
+
+FLUSH PRIVILEGES;
+
+configurer une ip fixe pour la vm.
+
+rechercher les occurences
+grep -R "jereservemonactivite.fr" templates/
+
+
+find ./templates -type f -exec sed -i 's|http://192.168.130.200|https://192.168.130.200|g' {} \;
+sudo find templates -type f -name "*.twig" -exec sed -i 's|https://jereservemonactivite.fr|https://symfony.local|g' {} +
+
+
+Ah, là c’est un classique conflit de versions npm : ton package.json demande @symfony/webpack-encore@^4.0.0, mais sur la VM tu as déjà installé une version récente (5.3.1). Du coup npm ne sait pas comment résoudre les dépendances avec webpack-cli@4.10.0. Tout est ok aprés je sais qu'on a une difference de version entre le webpack utilisé sur le serveur ionos et sur la vm . Envrai sur le serveur ionos npm et webpack ne sont pas installé, j'avais juste importé tous les fichiers depuis mes depots en local de wamp) . Aujourd hui avec cette vm, l'environnement local et prod sont vraiment quasi identique! c'est top!
+
+
+🎯 Prochaine étape : créer ta VM Ubuntu 22.04
+
+Voici la configuration recommandée pour ton environnement Symfony / Node / MariaDB :
+
+Nom de la VM : ubuntu-dev
+
+Génération : Generation 2
+
+RAM : 4–8 Go (8 Go si tu veux Webpack rapide)
+
+CPU : 2–4 vCPU
+
+Disque : 40–80 Go (SSD idéal)
+
+Network : Default Switch (pour accès Internet immédiat)
+
+ISO : Ubuntu 22.04 Server (sans interface graphique)
+sudo apt update && sudo apt upgrade -y
+

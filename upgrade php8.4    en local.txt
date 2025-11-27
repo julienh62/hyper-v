@@ -1,0 +1,56 @@
+upgrade php8.4    en local
+sudo apt update
+sudo apt install -y ca-certificates apt-transport-https software-properties-common lsb-release
+sudo add-apt-repository ppa:ondrej/php -y
+sudo apt update
+
+sudo apt install -y php8.4 php8.4-fpm php8.4-cli php8.4-common php8.4-opcache php8.4-intl php8.4-mbstring php8.4-xml php8.4-mysql php8.4-curl php8.4-zip php8.4-gd php8.4-bcmath php8.4-readline
+
+verifier 
+php8.4 -v
+
+ÉDITER ton vhost Nginx pour remplacer :
+fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
+fastcgi_pass unix:/var/run/php/php8.4-fpm.sock;
+
+sudo systemctl restart php8.4-fpm
+sudo systemctl restart Nginx
+
+composer install
+
+composer remove sensio/framework-extra-bundle
+
+jhennebo@ubuntu-symfony-hyperv:/var/www/symfony/src/Controller$ grep -R "Sensio" -n .
+./Admin/AdminPurchaseUserController.php:17:use Sensio\Bundle\FrameworkExtraBundle\Configuration\IsGranted;
+./Purchase/PurchaseConfirmationController.php:17:use Sensio\Bundle\FrameworkExtraBundle\Configuration\IsGranted;
+./Purchase/PurchasePaymentSuccessController.php:21:use Sensio\Bundle\FrameworkExtraBundle\Configuration\IsGranted;
+./Purchase/PurchaseListController.php:15:use Sensio\Bundle\FrameworkExtraBundle\Configuration\IsGranted;
+./Purchase/PurchasePaymentController.php:17:use Sensio\Bundle\FrameworkExtraBundle\Configuration\IsGranted;
+./PaymentController.php:15:use Sensio\Bundle\FrameworkExtraBundle\Configuration\IsGranted;
+jhennebo@ubuntu-symfony-hyperv:/var/www/symfony/src/Controller$
+
+modifier les fichiers
+composer require sensio/framework-extra-bundle
+
+
+root@ubuntu:/var/www/symfony# rm -rf var/cache/prod
+root@ubuntu:/var/www/symfony# mkdir -p var/cache/prod
+chown -R www-data:www-data var/cache
+chmod -R 775 var/cache
+root@ubuntu:/var/www/symfony# sudo -u www-data php bin/console cache:warmup --env=prod
+
+
+
+upgrade php8.4 en prod
+sudo add-apt-repository ppa:ondrej/php -y
+sudo apt update
+sudo apt install php8.4 php8.4-cli php8.4-common php8.4-fpm \
+php8.4-mysql php8.4-xml php8.4-curl php8.4-intl php8.4-mbstring \
+php8.4-zip php8.4-gd php8.4-opcache
+
+Éditer ton fichier Nginx (souvent /etc/nginx/sites-available/symfony 
+fastcgi_pass unix:/run/php/php8.4-fpm.sock;
+
+
+
+

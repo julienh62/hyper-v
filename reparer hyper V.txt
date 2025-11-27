@@ -1,0 +1,17 @@
+reparer hyper V
+Ouvre PowerShell en administrateur et exécute :
+Stop-Service vmms -Force
+Start-Service vmms
+puis
+Get-VMSwitch
+Désactiver puis réactiver Hyper-V (réparation automatique)
+1. Ouvre PowerShell admin
+
+Et tape :
+Disable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -NoRestart
+➡️ Attends la fin, ne redémarre pas encore.
+Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -All
+
+
+Maintenant redémarre Windows
+Get-VMSwitch
