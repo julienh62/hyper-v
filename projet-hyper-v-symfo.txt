@@ -15,7 +15,7 @@ Chemins standards /var/www/symfony
 
 ➡️ PHP
 
-PHP 8.1.2
+PHP 8.1.2   ->8.4.15
 
 PHP-FPM 8.1 actif (/var/run/php/php8.1-fpm.sock)
 
@@ -24,8 +24,7 @@ Extensions clés : intl, mbstring, pdo_mysql, curl, opcache…
 ➡️ Nginx
 
 Version : 1.18
-
-2 vhosts : opalerev.fr et symfony
+ vhost :  symfony
 
 Certbot (Let’s Encrypt) actif
 
@@ -174,22 +173,22 @@ On utilisera ce nom dans Netplan
 Étape suivante : configurer une IP fixe via Netplan
 Édite ou crée le fichier Netplan :
 dans /etc/netplan   modifier la config 
-/etc/netplan/50-cloud-init.yaml
-"network:
-    ethernets:
-        eth0:
-            dhcp4: true
-    version: 2"                  à remplacer par  
+faire persister connection ssh et adresse ip
+Modifier Netplan pour une IP fixe
+
+Édite /etc/netplan/50-cloud-init.yaml :
 
 network:
-    version: 2
-    ethernets:
-        eth0:
-            addresses:
-              - 10.10.0.10/24
-            gateway4: 10.10.0.1
-            nameservers:
-                addresses: [8.8.8.8, 1.1.1.1]
+  version: 2
+  ethernets:
+    eth0:
+      addresses:
+        - 10.10.0.10/24
+      routes:
+        - to: 0.0.0.0/0
+          via: 10.10.0.1
+      nameservers:
+        addresses: [8.8.8.8,1.1.1.1]
 
 
 
@@ -199,10 +198,10 @@ DNS → Google et Cloudflare pour l’Internet
 
 dans parametre de hyper v  -> carte reseau selectionner internalNat
 
-Applique la configuration :
+Applique la configuration sur la vm
 sudo netplan apply
 
-
+ 
 sudo ip link set dev eth0 down
 sudo ip link set dev eth0 up
 
@@ -218,9 +217,10 @@ echo "nameserver 1.1.1.1" | sudo tee -a /etc/resolv.conf
 
 
 
-
-
-
+Après ça, depuis l’hôte Windows :
+tester la connection
+Test-NetConnection -ComputerName 10.10.0.10 -Port 22
+ssh jhennebo@10.10.0.10
 
 
 
@@ -232,16 +232,10 @@ recuperer ipv4 de la VM
 ip -4 -o addr show | grep -w inet | awk '{print $4}'
     exemle
 127.0.0.1	Adresse interne de la VM (localhost)
-192.168.1.131	Adresse réseau de la VM sur ton LAN
-Ta VM a pris une IP normale fournie par ton routeur/box.
-👉 Elle est sur le même réseau que ton PC.
 
+ssh jhennebo@10.10.0.10
 
-
-symfony server:start --allow-http --port=8000 --listen-ip=0.0.0.0 -d
-
-pour tuer tout processus qui utiliserai port 8000
-sudo fuser -k 8000/tcp 2>/dev/null; symfony server:start --allow-http --port=8000 --listen-ip=0.0.0.0 -d
+https://symfony.local/
 
 -- Créer l'utilisateur si inexistant
 CREATE USER 'jhennebo'@'localhost' IDENTIFIED BY 'C462.5242';
